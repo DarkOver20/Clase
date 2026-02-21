@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estrategia Dinámica · 3D Experience</title>
+    <!-- Fuentes modernas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        /* ===== VARIABLES (sin morado) ===== */
+        :root {
+            --bg-dark: #0a0c15;
+            --surface-dark: rgba(18, 25, 45, 0.75);
+            --surface-border: rgba(0, 243, 255, 0.15);
+            --neon-cyan: #00f3ff;
+            --neon-blue: #3a86ff;
+            --accent-glow: #00c8ff;
+            --text-primary: #f0f4ff;
+            --text-secondary: #b0c0e0;
+            --card-bg: rgba(10, 18, 30, 0.6);
+            --gradient-1: linear-gradient(135deg, #00f3ff, #3a86ff);
+            --gradient-2: linear-gradient(145deg, #1e2a4a, #0f1a2f);
+            --shadow-heavy: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 243, 255, 0.1);
+            --glow-soft: 0 0 30px rgba(0, 243, 255, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-dark);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text-primary);
+            perspective: 1800px;
+            line-height: 1.5;
+        }
+
+        /* ===== FONDO DE PARTÍCULAS MEJORADO ===== */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* ===== CONTENEDOR 3D ===== */
+        #viewport {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-style: preserve-3d;
+            transition: transform 1.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+            z-index: 20;
+        }
+
+        /* ===== NODOS (DIAPOSITIVAS REDISEÑADAS) ===== */
+        .node {
+            position: absolute;
+            width: 900px;          /* un poco más ancho para mejor legibilidad */
+            margin-left: -450px;
+            margin-top: -350px;
+            padding: 3rem 3.5rem;
+            background: var(--surface-dark);
+            backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--surface-border);
+            border-radius: 48px;
+            box-shadow: 0 30px 50px -20px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.08);
+            transform-style: preserve-3d;
+            opacity: 0;
+            transition: opacity 1s ease, box-shadow 0.5s ease, border-color 0.3s;
+            pointer-events: none;
+            color: var(--text-primary);
+            letter-spacing: 0.2px;
+        }
+
+        .node.active {
+            opacity: 1;
+            pointer-events: auto;
+            border-color: rgba(0, 243, 255, 0.4);
+            box-shadow: 0 40px 80px -20px #000, 0 0 0 1px rgba(0,243,255,0.2), var(--glow-soft);
+        }
+
+        /* Tipografía limpia */
+        h1, h2, h3 {
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        h1 {
+            font-size: 4.2rem;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.1;
+            margin-bottom: 0.75rem;
+            text-shadow: 0 0 20px rgba(0,243,255,0.3);
+        }
+
+        h2 {
+            font-size: 2.8rem;
+            background: linear-gradient(135deg, #fff, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(0, 243, 255, 0.3);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        h3 {
+            font-size: 1.8rem;
+            color: var(--neon-cyan);
+            margin: 1.2rem 0 0.8rem;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.2rem;
+            font-weight: 400;
+        }
+
+        strong, .highlight {
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Tarjetas internas elegantes */
+        .card {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 1.8rem;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 15px 25px -15px #000;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 243, 255, 0.3);
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.8rem;
+            margin: 2rem 0;
+        }
+
+        .card-list {
+            list-style: none;
+            margin: 1rem 0;
+        }
+        .card-list li {
+            margin-bottom: 0.8rem;
+            padding-left: 1.8rem;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+        .card-list li::before {
+            content: "▹";
+            color: var(--neon-cyan);
+            position: absolute;
+            left: 0;
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(0, 243, 255, 0.1);
+            border-left: 4px solid var(--neon-cyan);
+            padding: 0.5rem 1.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--neon-cyan);
+            border-radius: 0 20px 20px 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .quote {
+            font-size: 1.5rem;
+            font-weight: 400;
+            font-style: italic;
+            color: #d0e0ff;
+            border-left: 6px solid var(--neon-blue);
+            padding-left: 2rem;
+            margin: 2rem 0;
+            background: rgba(58, 134, 255, 0.05);
+            border-radius: 0 20px 20px 0;
+            padding: 1.5rem 2rem;
+        }
+
+        .footer-note {
+            margin-top: 2rem;
+            text-align: right;
+            color: var(--neon-cyan);
+            font-size: 0.95rem;
+            opacity: 0.7;
+            border-top: 1px dashed rgba(0,243,255,0.3);
+            padding-top: 1rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        /* hint de navegación */
+        #controls-hint {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.3);
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            z-index: 100;
+            background: rgba(0,0,0,0.3);
+            padding: 0.5rem 1.5rem;
+            border-radius: 40px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0,243,255,0.1);
+            text-transform: uppercase;
+        }
+
+        /* pequeños detalles */
+        .glow-text {
+            text-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="particle-canvas"></canvas>
+    <div id="controls-hint">←  NAVEGACIÓN ESPACIAL  →</div>
+
+    <div id="viewport">
+        <!-- NODO 0 - PORTADA PRINCIPAL (rediseñada) -->
+        <div class="node" data-x="0" data-y="0" data-z="0" data-scale="1">
+            <div class="badge">Gerencia Estratégica</div>
+            <h1 style="font-size:5.5rem; line-height:1;">Planificación<br>Estratégica</h1>
+            <p style="font-size:2.2rem; color:var(--text-primary); margin-top:0.5rem;">Del mapa estático al GPS dinámico</p>
+            <hr>
+            <div style="display:flex; justify-content:flex-end;">
+                <div class="card" style="max-width:400px; border-left:6px solid var(--neon-cyan);">
+                    <p style="margin:0; font-size:1rem; color:var(--neon-cyan);"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- NODO 1 - EVOLUCIÓN DEL PLAN -->
+        <div class="node" data-x="2000" data-y="0" data-z="-1000" data-rotate-y="-45" data-scale="1">
+            <h2>Evolución del Plan</h2>
+            <p class="highlight" style="font-size:1.5rem;">La estrategia ya no es un plan estático, es adaptación continua.</p>
+            <div class="grid-2">
+                <div class="card">
+                    <h3 style="margin-top:0;">🗺️ Mapa topográfico</h3>
+                    <p>Tradicional y fijo. Asume un terreno estable e inmutable.</p>
+                </div>
+                <div class="card" style="border-left-color:var(--neon-blue);">
+                    <h3 style="margin-top:0; color:var(--neon-blue);">📡 GPS en tiempo real</h3>
+                    <p>Se actualiza constantemente, aprende del tráfico y el entorno.</p>
+                </div>
+            </div>
+            <div class="footer-note">💡 Dinamica: ocasión en que su empresa tuvo que cambiar de rumbo estratégicamente</div>
+        </div>
+
+        <!-- NODO 2 - NÚCLEO (KOTLER) -->
+        <div class="node" data-x="2000" data-y="1500" data-z="-2000" data-rotate-x="-30" data-rotate-y="-45" data-scale="0.8">
+            <h2>El Núcleo · Kotler</h2>
+            <div class="quote">
+                “Proceso sistemático que involucra la formulación y aplicación de decisiones para lograr objetivos a largo plazo, considerando recursos internos y entorno externo, buscando una ventaja competitiva sostenible.”
+            </div>
+            <div class="grid-2" style="margin-top:1rem;">
+                <ul class="card-list">
+                    <li>Sistemático</li>
+                    <li>Largo plazo</li>
+                    <li>Entorno externo</li>
+                </ul>
+                <ul class="card-list">
+                    <li>Recursos internos</li>
+                    <li>Ventaja competitiva</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- NODO 3 - CARACTERÍSTICAS CLAVE -->
+        <div class="node" data-x="0" data-y="2500" data-z="-1000" data-rotate-x="-60" data-scale="1.5">
+            <h2 style="width:100%; text-align:center;">Características Clave</h2>
+            <div class="card-grid">
+                <div class="card"><h3>🗺️ Mapeo</h3><p>¿Dónde estamos? ¿hacia dónde vamos? ¿qué somos?</p></div>
+                <div class="card"><h3>⏳ Horizonte</h3><p>Largo plazo, atacando oportunidades presentes y futuras.</p></div>
+                <div class="card"><h3>🎯 Mando Central</h3><p>Altos ejecutivos visualizan y dictan el futuro.</p></div>
+                <div class="card"><h3>⚡ Foco Láser</h3><p>Recursos en actividades de alta prioridad.</p></div>
+            </div>
+        </div>
+
+        <!-- NODO 4 - CASO GOOGLE -->
+        <div class="node" data-x="-2000" data-y="1000" data-z="-500" data-rotate-y="45" data-scale="1">
+            <h2>Google · Caso de Estudio</h2>
+            <p>Motor estratégico en acción:</p>
+            <div class="card">
+                <ol class="card-list" style="list-style:decimal; padding-left:1.5rem;">
+                    <li>Visión y objetivos (organizar información mundial)</li>
+                    <li>Análisis continuo del entorno</li>
+                    <li>Identificación de fortalezas tecnológicas</li>
+                    <li>Estrategias clave (Cloud, IA, ecosistema)</li>
+                    <li>Asignación algorítmica de recursos</li>
+                    <li>Monitoreo y ajuste implacable</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- NODO 5 - PAUSA ESTRATÉGICA (3 PREGUNTAS) -->
+        <div class="node" data-x="-3000" data-y="0" data-z="1000" data-rotate-y="90" data-scale="1.2">
+            <h2 style="color:var(--neon-cyan);">⏸️ Pausa Estratégica</h2>
+            <p>Sincronización de ideas:</p>
+            <div class="card-grid" style="grid-template-columns:1fr;">
+                <div class="card"><strong>1.</strong> Si la estrategia de tu empresa fuera un animal, ¿cuál sería?</div>
+                <div class="card"><strong>2.</strong> ¿Estrategia perfecta ejecutada a medias, o estrategia regular ejecutada impecablemente?</div>
+                <div class="card"><strong>3.</strong> ¿Has vivido alguna vez una situación en la que una estrategia funcionó a pesar de no tener sentido en el análisis tradicional? </div>
+            </div>
+        </div>
+
+        <!-- NODO 6 - DIAGNÓSTICO AVANZADO + FALLA FODA -->
+        <div class="node" data-x="0" data-y="-2500" data-z="0" data-rotate-x="45" data-scale="2">
+            <span class="badge" style="border-left-color:#ff4d6d;">MÓDULO 2</span>
+            <h1 style="font-size:3.5rem;">Diagnóstico Avanzado</h1>
+            <p style="font-size:1.8rem; color:white;">Superando las limitaciones del FODA</p>
+            <div class="card" style="border-left:6px solid #ff4d6d; margin-top:1.5rem;">
+                <h3 style="color:#ff4d6d; margin-top:0;">⚠️ Falla Crítica del FODA</h3>
+                <p>Subjetividad, falta de priorización, confusión interno/externo, nula conexión con ventaja competitiva real.</p>
+            </div>
+        </div>
+
+        <!-- NODO 7 - PESTEL + PORTER -->
+        <div class="node" data-x="2500" data-y="-2000" data-z="-1500" data-rotate-y="-30" data-rotate-x="20" data-scale="1">
+            <h2>Herramientas de Entorno</h2>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>📋 PESTEL</h3>
+                    <ul class="card-list">
+                        <li>Político</li><li>Económico</li><li>Sociocultural</li>
+                        <li>Tecnológico</li><li>Ecológico</li><li>Legal</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>⚔️ Porter</h3>
+                    <ul class="card-list">
+                        <li>Rivalidad existente</li><li>Nuevos entrantes</li>
+                        <li>Sustitutos</li><li>Poder proveedores</li><li>Poder clientes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        
+
+        <!-- NODO 9 - PROTOCOLOS FINALES + CIERRE -->
+        <div class="node" data-x="0" data-y="0" data-z="3000" data-rotate-y="180" data-scale="1.5">
+            <h2>Protocolos Finales</h2>
+            <div class="card">
+                <ul class="card-list">
+                    <li><strong>Océano rojo vs azul:</strong> crea nuevo espacio; no compitas en sangre.</li>
+                    <li><strong>Caso Nokia:</strong> FODA perfecto (2007), VRIO engañoso. Los sustitutos los destruyeron.</li>
+                    <li><strong>AOT:</strong> La estrategia no es un muro que nos protege del futuro.
+Es el valor de ir más allá.</li>
+                </ul>
+            </div>
+            <div style="text-align:center; margin-top:3rem;">
+                <h1 style="font-size:2.4rem; text-transform:none;">"Las personas que no pueden renunciar a algo, no son capaces de cambiar nada."</h1>
+                <p style="color:var(--neon-cyan);">Armin Alert</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const viewport = document.getElementById('viewport');
+            const nodes = document.querySelectorAll('.node');
+            let currentIndex = 0;
+
+            function focusNode(index) {
+                nodes.forEach(n => n.classList.remove('active'));
+                const target = nodes[index];
+                target.classList.add('active');
+
+                const x = target.getAttribute('data-x') || 0;
+                const y = target.getAttribute('data-y') || 0;
+                const z = target.getAttribute('data-z') || 0;
+                const rx = target.getAttribute('data-rotate-x') || 0;
+                const ry = target.getAttribute('data-rotate-y') || 0;
+                const rz = target.getAttribute('data-rotate-z') || 0;
+                const scale = target.getAttribute('data-scale') || 1;
+
+                // asegurar posición local del nodo
+                target.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${scale})`;
+
+                // mover cámara (inversa)
+                const invScale = 1 / scale;
+                viewport.style.transform = `scale(${invScale}) rotateZ(${-rz}deg) rotateY(${-ry}deg) rotateX(${-rx}deg) translate3d(${-x}px, ${-y}px, ${-z}px)`;
+            }
+
+            // posicionar todos los nodos inicialmente
+            nodes.forEach(node => {
+                const x = node.getAttribute('data-x') || 0;
+                const y = node.getAttribute('data-y') || 0;
+                const z = node.getAttribute('data-z') || 0;
+                const rx = node.getAttribute('data-rotate-x') || 0;
+                const ry = node.getAttribute('data-rotate-y') || 0;
+                const rz = node.getAttribute('data-rotate-z') || 0;
+                const scale = node.getAttribute('data-scale') || 1;
+                node.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${scale})`;
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (currentIndex < nodes.length - 1) {
+                        currentIndex++;
+                        focusNode(currentIndex);
+                    }
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        focusNode(currentIndex);
+                    }
+                }
+            });
+
+            // inicio
+            setTimeout(() => focusNode(0), 150);
+
+            // ========= PARTÍCULAS MEJORADAS (sin morado) =========
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height, particles;
+
+            function initParticles() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                particles = [];
+                const count = Math.floor((width * height) / 13000);
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        vx: (Math.random() - 0.5) * 0.4,
+                        vy: (Math.random() - 0.5) * 0.4,
+                        r: Math.random() * 2.5 + 1
+                    });
+                }
+            }
+
+            function drawParticles() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.7)';
+                ctx.strokeStyle = 'rgba(58, 134, 255, 0.2)';
+                ctx.lineWidth = 1.2;
+
+                for (let i = 0; i < particles.length; i++) {
+                    let p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0 || p.x > width) p.vx *= -1;
+                    if (p.y < 0 || p.y > height) p.vy *= -1;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    for (let j = i + 1; j < particles.length; j++) {
+                        let p2 = particles[j];
+                        let dx = p.x - p2.x, dy = p.y - p2.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 120) {
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(drawParticles);
+            }
+
+            window.addEventListener('resize', () => { initParticles(); });
+            initParticles();
+            drawParticles();
+        })();
+
+        
+    </script>
+</body>
+</html>
